@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+##!/usr/bin/env python3
 from lib import wrappers
 from lib import dqn_model
 
@@ -15,18 +15,19 @@ from tensorboardX import SummaryWriter
 
 
 DEFAULT_ENV_NAME = "PongNoFrameskip-v4"
-MEAN_REWARD_BOUND = 19
+MEAN_REWARD_BOUND = 15
 
+n = 5
 GAMMA = 0.99
-BATCH_SIZE = 32
-REPLAY_SIZE = 10000
+BATCH_SIZE = 32 * n
+REPLAY_SIZE = 10000 * n
 LEARNING_RATE = 1e-4
-SYNC_TARGET_FRAMES = 1000
-REPLAY_START_SIZE = 10000
+SYNC_TARGET_FRAMES = 1000 * n
+REPLAY_START_SIZE = 10000 * n
 
-EPSILON_DECAY_LAST_FRAME = 150000
+EPSILON_DECAY_LAST_FRAME = 150000 * n
 EPSILON_START = 1.0
-EPSILON_FINAL = 0.01
+EPSILON_FINAL = 0.02
 
 
 Experience = collections.namedtuple(
@@ -73,7 +74,7 @@ class Agent:
             action = env.action_space.sample()
         else:
             state_a = np.array([self.state], copy=False)
-            state_v = torch.tensor(state_a).to(device)
+            state_v = torch.tensor(state_a, device=device)
             q_vals_v = net(state_v)
             _, act_v = torch.max(q_vals_v, dim=1)
             action = int(act_v.item())
@@ -95,13 +96,11 @@ class Agent:
 def calc_loss(batch, net, tgt_net, device="cpu"):
     states, actions, rewards, dones, next_states = batch
 
-    states_v = torch.tensor(np.array(
-        states, copy=False)).to(device)
-    next_states_v = torch.tensor(np.array(
-        next_states, copy=False)).to(device)
-    actions_v = torch.tensor(actions).to(device)
-    rewards_v = torch.tensor(rewards).to(device)
-    done_mask = torch.BoolTensor(dones).to(device)
+    states_v = torch.tensor(np.array(states, copy=False), device=device)
+    next_states_v = torch.tensor(np.array(next_states, copy=False), device=device)
+    actions_v = torch.tensor(actions, dtype=torch.int64, device=device)
+    rewards_v = torch.tensor(rewards, device=device)
+    done_mask = torch.tensor(dones, dtype=torch.bool, device=device)
 
     state_action_values = net(states_v).gather(
         1, actions_v.unsqueeze(-1)).squeeze(-1)
@@ -117,14 +116,16 @@ def calc_loss(batch, net, tgt_net, device="cpu"):
 
 
 if __name__ == "__main__":
+    start_time = time.time()
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cuda", default=False,
+    parser.add_argument("--cuda", default=True,
                         action="store_true", help="Enable cuda")
     parser.add_argument("--env", default=DEFAULT_ENV_NAME,
                         help="Name of the environment, default=" +
                              DEFAULT_ENV_NAME)
     args = parser.parse_args()
-    device = torch.device("cuda" if args.cuda else "cpu")
+    device = torch.device("cuda:1" if args.cuda else "cpu")
 
     env = wrappers.make_env(args.env)
 
@@ -156,12 +157,13 @@ if __name__ == "__main__":
             total_rewards.append(reward)
             speed = (frame_idx - ts_frame) / (time.time() - ts)
             ts_frame = frame_idx
+            elapsed_time = time.time() - ts
             ts = time.time()
             m_reward = np.mean(total_rewards[-100:])
             print("%d: done %d games, reward %.3f, "
-                  "eps %.2f, speed %.2f f/s" % (
+                  "eps %.2f, speed %.2f f/s, elapsed time %.2fs" % (
                 frame_idx, len(total_rewards), m_reward, epsilon,
-                speed
+                speed, elapsed_time
             ))
             writer.add_scalar("epsilon", epsilon, frame_idx)
             writer.add_scalar("speed", speed, frame_idx)
@@ -190,3 +192,7 @@ if __name__ == "__main__":
         loss_t.backward()
         optimizer.step()
     writer.close()
+
+    training_time = time.time() - start_time
+    training_time = time.strftime('%H:%M:%S', time.gmtime(training_time))
+    print("Training end : {}".format(training_time))

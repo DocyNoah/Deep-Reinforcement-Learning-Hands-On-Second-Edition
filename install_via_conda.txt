@@ -1,0 +1,18 @@
+conda create -n ptanbook python==3.7
+
+conda activate ptanbook
+
+conda install -c conda-forge atari_py=0.2.6
+conda install -c conda-forge gym=0.17.3
+conda install -c conda-forge numpy=1.19.2
+conda install -c conda-forge libopencv=4.4.0
+conda install -c conda-forge tensorboard=2.4.0
+conda install -c pytorch pytorch=1.7.0
+conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cudatoolkit=11.0 -c pytorch
+conda install -c pytorch ignite==0.4.2
+conda install -c conda-forge tensorboardx==2.1
+conda install -c conda-forge tensorflow==2.3.0
+conda install -c conda-forge nltk==3.5
+pip install pybullet==3.0.7
+pip install ptan
+conda install -c conda-forge matplotlib
